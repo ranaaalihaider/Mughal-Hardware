@@ -7,6 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('display-date').innerText = new Date().toLocaleDateString('en-GB', dateOptions);
 
     addAppRow();
+
+    // Register Service Worker for Caching
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+            .then(() => console.log('Service Worker Registered'))
+            .catch((err) => console.log('Service Worker Failed', err));
+    }
 });
 
 // --- APP LOGIC ---
