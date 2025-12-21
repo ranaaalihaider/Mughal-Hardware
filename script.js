@@ -1,138 +1,171 @@
-// Set current date
-document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-PK', {
-    year: 'numeric', month: 'long', day: 'numeric'
+// --- STATE MANAGEMENT ---
+let rows = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    const dateOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+    document.getElementById('display-date').innerText = new Date().toLocaleDateString('en-GB', dateOptions);
+
+    addAppRow();
 });
 
-const productList = document.getElementById('product-list');
+// --- APP LOGIC ---
+function addAppRow() {
+    const id = Date.now().toString();
+    rows.push({ id, name: '', price: 0, discount: 0 });
+    renderRows();
+    updateTotals();
 
-// Initial row
-addProductRow();
-
-function addProductRow() {
-    const rowId = 'row-' + Date.now();
-    const row = document.createElement('tr');
-    row.id = rowId;
-    row.className = 'bg-white border-b border-slate-100 hover:bg-slate-50 transition-colors group';
-
-    row.innerHTML = `
-        <td class="px-4 py-4" data-label="Product Name">
-            <input type="text" placeholder="Item name" class="w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-indigo-300 rounded-lg px-3 py-2 text-slate-700 placeholder-slate-400 text-sm font-medium transition-all focus:ring-2 focus:ring-indigo-100 outline-none" />
-        </td>
-        <td class="px-4 py-4" data-label="Price (PKR)">
-            <input type="number" min="0" placeholder="0" oninput="calculateRow('${rowId}')" class="price-input w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-right text-slate-600 text-sm font-medium transition-all" />
-        </td>
-        <td class="px-4 py-4" data-label="Discount (PKR)">
-            <div class="relative">
-                <input type="number" min="0" placeholder="0" oninput="calculateRow('${rowId}')" class="discount-input w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-right text-slate-600 text-sm font-medium transition-all" />
-            </div>
-        </td>
-        <td class="px-4 py-4 text-right font-bold text-slate-700 final-price tracking-wide" data-label="Final Price">
-            0
-        </td>
-        <td class="px-4 py-4 text-center exclude-from-pdf" data-label="Action">
-            <button onclick="removeRow('${rowId}')" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 md:focus:opacity-100">
-                <i class="fas fa-trash-alt"></i>
-            </button>
-        </td>
-    `;
-
-    productList.appendChild(row);
-    // Focus on the first input of the new row
-    row.querySelector('input').focus();
+    // Auto-focus the first input of the new row
+    setTimeout(() => {
+        const tbody = document.getElementById('app-product-list');
+        const lastRow = tbody.lastElementChild;
+        if (lastRow) {
+            const firstInput = lastRow.querySelector('input');
+            if (firstInput) firstInput.focus();
+        }
+    }, 0);
 }
 
-function removeRow(rowId) {
-    const row = document.getElementById(rowId);
-    if (row) {
-        row.remove();
-        updateTotals();
+function removeRow(id) {
+    if (rows.length > 1) {
+        rows = rows.filter(r => r.id !== id);
+    } else {
+        rows[0] = { id: rows[0].id, name: '', price: 0, discount: 0 };
     }
-}
-
-function calculateRow(rowId) {
-    const row = document.getElementById(rowId);
-    if (!row) return;
-
-    const priceInput = row.querySelector('.price-input');
-    const discountInput = row.querySelector('.discount-input');
-    const finalPriceDisplay = row.querySelector('.final-price');
-
-    let price = parseFloat(priceInput.value) || 0;
-    let discountAmount = parseFloat(discountInput.value) || 0;
-
-    // Sanity check
-    if (discountAmount < 0) discountAmount = 0;
-    // Optional: if discount > price ? Let's allow it for now or cap it? 
-    // Usually discount shouldn't exceed price.
-    if (discountAmount > price) discountAmount = price;
-
-    const finalPrice = price - discountAmount;
-
-    finalPriceDisplay.textContent = formatCurrency(finalPrice);
-
-    // Store raw values for total calculation if needed, or just re-read inputs in updateTotals
+    renderRows();
     updateTotals();
 }
 
-function updateTotals() {
-    let totalCount = 0;
-    let sumOriginal = 0;
-    let sumDiscount = 0;
-    let sumFinal = 0;
+function updateRow(id, field, value) {
+    const row = rows.find(r => r.id === id);
+    if (!row) return;
 
-    const rows = productList.querySelectorAll('tr');
+    if (field === 'name') {
+        row.name = value;
+    } else {
+        let val = parseFloat(value) || 0;
+        if (field === 'discount' && val > row.price) val = row.price;
+        row[field] = val;
+
+        // Visual Update for specific row TOTAL only (No re-renders!)
+        const final = Math.max(0, row.price - row.discount);
+        const totalSpan = document.getElementById(`total-${id}`);
+        if (totalSpan) totalSpan.innerText = final.toLocaleString();
+    }
+    updateTotals();
+}
+
+function renderRows() {
+    const tbody = document.getElementById('app-product-list');
+    tbody.innerHTML = '';
 
     rows.forEach(row => {
-        const priceInput = row.querySelector('.price-input');
-        const discountInput = row.querySelector('.discount-input');
+        const final = Math.max(0, row.price - row.discount);
 
-        // Only count rows that have some value to avoid empty rows skewing count? 
-        // Or just count all rows. Prompt says "Total number of products".
-        // Let's count all rows displayed.
-        totalCount++;
+        const tr = document.createElement('tr');
+        tr.className = 'product-row';
+        tr.innerHTML = `
+            <td class="col-name">
+                <span class="mobile-label">Product Name</span>
+                <textarea 
+                    oninput="updateRow('${row.id}', 'name', this.value); this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                    placeholder="Item description"
+                    rows="1"
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none overflow-hidden bg-transparent"
+                >${row.name}</textarea>
+            </td>
+            <td class="col-price">
+                <span class="mobile-label">Price</span>
+                <input type="number" value="${row.price || ''}" 
+                    oninput="updateRow('${row.id}', 'price', this.value)"
+                    placeholder="0"
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                >
+            </td>
+            <td class="col-discount">
+                <span class="mobile-label">Discount</span>
+                <input type="number" value="${row.discount || ''}" 
+                    oninput="updateRow('${row.id}', 'discount', this.value)"
+                    placeholder="0"
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                >
+            </td>
+            <td class="col-final text-right">
+                <span class="mobile-label">Total</span>
+                <span id="total-${row.id}">${final.toLocaleString()}</span>
+            </td>
+            <td class="col-action text-center">
+                <button onclick="removeRow('${row.id}')" class="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors" tabindex="-1">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
 
-        let price = parseFloat(priceInput.value) || 0;
-        let discountVal = parseFloat(discountInput.value) || 0;
+function updateTotals() {
+    let sumOriginal = 0;
+    let sumDiscount = 0;
+    let grandTotal = 0;
 
-        if (discountVal < 0) discountVal = 0;
-        if (discountVal > price) discountVal = price;
-
-        const discountAmount = discountVal;
-        const finalPrice = price - discountAmount;
-
-        sumOriginal += price;
-        sumDiscount += discountAmount;
-        sumFinal += finalPrice;
+    rows.forEach(row => {
+        const final = Math.max(0, row.price - row.discount);
+        sumOriginal += row.price;
+        sumDiscount += row.discount;
+        grandTotal += final;
     });
 
-    document.getElementById('total-count').textContent = totalCount;
-    document.getElementById('sum-original').textContent = formatCurrency(sumOriginal);
-    document.getElementById('sum-discount').textContent = formatCurrency(sumDiscount);
-    document.getElementById('sum-final').textContent = formatCurrency(sumFinal);
+    document.getElementById('app-total-original').innerText = sumOriginal.toLocaleString();
+    document.getElementById('app-total-discount').innerText = sumDiscount.toLocaleString();
+    document.getElementById('app-grand-total').innerText = "Rs " + grandTotal.toLocaleString();
 }
 
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR' }).format(amount).replace('PKR', '').trim();
-}
-
+// --- PDF LOGIC ---
 function generatePDF() {
-    const element = document.getElementById('quotation-content');
+    const template = document.getElementById('pdf-template');
+    const tbody = document.getElementById('pdf-table-body');
+
+    tbody.innerHTML = '';
+    let sumOriginal = 0, sumDiscount = 0, grandTotal = 0;
+
+    rows.forEach(row => {
+        const final = Math.max(0, row.price - row.discount);
+        sumOriginal += row.price;
+        sumDiscount += row.discount;
+        grandTotal += final;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${row.name || '-'}</td>
+            <td>${row.price.toLocaleString()}</td>
+            <td>${row.discount ? row.discount.toLocaleString() : '-'}</td>
+            <td style="text-align:right; font-weight:500;">${final.toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('pdf-sum-original').innerText = sumOriginal.toLocaleString();
+    document.getElementById('pdf-sum-discount').innerText = sumDiscount.toLocaleString();
+    document.getElementById('pdf-grand-total').innerText = "Rs " + grandTotal.toLocaleString();
+    document.getElementById('pdf-notes').innerText = document.getElementById('app-notes').value || "Thank you for your business.";
+
+    const dateOptions = { day: 'numeric', month: 'long', year: 'numeric' };
+    document.getElementById('pdf-date').innerText = new Date().toLocaleDateString('en-GB', dateOptions);
+
+    template.style.display = 'block';
+
     const opt = {
-        margin: [0, 0, 0, 0], // Zero margin for full bleeding if needed, or standard [10, 10, 10, 10]
-        filename: `Quotation_MughalHardware_${new Date().getTime()}.pdf`,
+        margin: 10,
+        filename: `Quotation_${Date.now()}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Temporarily hide "exclude-from-pdf" elements
-    document.body.classList.add('printing-mode');
-    const buttons = document.querySelectorAll('.exclude-from-pdf');
-    buttons.forEach(el => el.style.visibility = 'hidden');
-
-    html2pdf().set(opt).from(element).save().then(() => {
-        // Restore
-        buttons.forEach(el => el.style.visibility = 'visible');
-        document.body.classList.remove('printing-mode');
+    html2pdf().set(opt).from(template).save().then(() => {
+        template.style.display = 'none';
+        console.log("PDF Saved");
     });
 }
