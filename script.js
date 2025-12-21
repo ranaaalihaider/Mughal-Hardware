@@ -177,11 +177,28 @@ function generatePDF() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Wait for render (fixes mobile "header only" bug)
-    setTimeout(() => {
-        html2pdf().set(opt).from(template).save().then(() => {
-            template.style.display = 'none';
-            console.log("PDF Saved");
-        });
+    const btn = document.querySelector("button[onclick='generatePDF()']");
+    const originalText = btn.innerHTML;
+    let count = 3;
+
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Preparing PDF (${count})...`;
+
+    const interval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Preparing PDF (${count})...`;
+        } else {
+            clearInterval(interval);
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generating...`;
+
+            // Generate PDF after countdown
+            html2pdf().set(opt).from(template).save().then(() => {
+                template.style.display = 'none';
+                console.log("PDF Saved");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        }
     }, 1000);
 }
