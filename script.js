@@ -183,5 +183,5 @@ function generatePDF() {
             template.style.display = 'none';
             console.log("PDF Saved");
         });
-    }, 500);
+    }, 1000);
 }
