@@ -69,10 +69,10 @@ function renderRows() {
             <td class="col-name">
                 <span class="mobile-label">Product Name</span>
                 <textarea 
-                    oninput="updateRow('${row.id}', 'name', this.value); this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                    oninput="updateRow('${row.id}', 'name', this.value); this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'"
                     placeholder="Item description"
                     rows="1"
-                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none overflow-hidden bg-transparent"
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none overflow-hidden bg-transparent min-h-[44px]"
                 >${row.name}</textarea>
             </td>
             <td class="col-price">
@@ -102,6 +102,12 @@ function renderRows() {
             </td>
         `;
         tbody.appendChild(tr);
+    });
+
+    // Auto-resize textareas after rendering
+    document.querySelectorAll('#app-product-list textarea').forEach(textarea => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
     });
 }
 
@@ -157,7 +163,7 @@ function generatePDF() {
     template.style.display = 'block';
 
     const opt = {
-        margin: 10,
+        margin: 5,
         filename: `Quotation_${Date.now()}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
