@@ -177,8 +177,11 @@ function generatePDF() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(template).save().then(() => {
-        template.style.display = 'none';
-        console.log("PDF Saved");
-    });
+    // Wait for render (fixes mobile "header only" bug)
+    setTimeout(() => {
+        html2pdf().set(opt).from(template).save().then(() => {
+            template.style.display = 'none';
+            console.log("PDF Saved");
+        });
+    }, 500);
 }
