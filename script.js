@@ -19,7 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- APP LOGIC ---
 function addAppRow() {
     const id = Date.now().toString();
-    rows.push({ id, name: '', price: 0, discount: 0 });
+    rows.push({
+        id,
+        name: '',
+        price: 0,
+        quantity: 1,
+        discountPercent: 0,
+        discountAmount: 0
+    });
     renderRows();
     updateTotals();
 
@@ -28,7 +35,7 @@ function addAppRow() {
         const tbody = document.getElementById('app-product-list');
         const lastRow = tbody.lastElementChild;
         if (lastRow) {
-            const firstInput = lastRow.querySelector('input');
+            const firstInput = lastRow.querySelector('textarea');
             if (firstInput) firstInput.focus();
         }
     }, 0);
@@ -38,7 +45,15 @@ function removeRow(id) {
     if (rows.length > 1) {
         rows = rows.filter(r => r.id !== id);
     } else {
-        rows[0] = { id: rows[0].id, name: '', price: 0, discount: 0 };
+        // Reset the last remaining row
+        rows[0] = {
+            id: rows[0].id,
+            name: '',
+            price: 0,
+            quantity: 1,
+            discountPercent: 0,
+            discountAmount: 0
+        };
     }
     renderRows();
     updateTotals();
@@ -50,16 +65,55 @@ function updateRow(id, field, value) {
 
     if (field === 'name') {
         row.name = value;
-    } else {
-        let val = parseFloat(value) || 0;
-        if (field === 'discount' && val > row.price) val = row.price;
-        row[field] = val;
-
-        // Visual Update for specific row TOTAL only (No re-renders!)
-        const final = Math.max(0, row.price - row.discount);
-        const totalSpan = document.getElementById(`total-${id}`);
-        if (totalSpan) totalSpan.innerText = final.toLocaleString();
+        // Height adjustment is handled inline in HTML
+        return;
     }
+
+    let val = parseFloat(value);
+    if (isNaN(val)) val = 0;
+
+    // Update the specific field
+    if (field === 'price') row.price = val;
+    if (field === 'quantity') row.quantity = val;
+    if (field === 'discountPercent') row.discountPercent = val;
+    if (field === 'discountAmount') row.discountAmount = val;
+
+    // --- RECALCULATION LOGIC ---
+    const totalAmount = row.price * row.quantity;
+
+    if (field === 'price' || field === 'quantity') {
+        // Keep Discount % constant, recalculate Discount Amount
+        row.discountAmount = (totalAmount * row.discountPercent) / 100;
+        // Update Discount Amount Input
+        const discAmtInput = document.getElementById(`input-disc-amt-${id}`);
+        if (discAmtInput) discAmtInput.value = row.discountAmount; // format?
+    }
+
+    if (field === 'discountPercent') {
+        // Recalculate Discount Amount based on new %
+        row.discountAmount = (totalAmount * row.discountPercent) / 100;
+        // Update Discount Amount Input
+        const discAmtInput = document.getElementById(`input-disc-amt-${id}`);
+        if (discAmtInput) discAmtInput.value = row.discountAmount;
+    }
+
+    if (field === 'discountAmount') {
+        // Recalculate Discount % based on new Amount
+        row.discountPercent = totalAmount > 0 ? (row.discountAmount / totalAmount) * 100 : 0;
+        // Update Discount % Input
+        const discPerInput = document.getElementById(`input-disc-per-${id}`);
+        if (discPerInput) discPerInput.value = row.discountPercent.toFixed(2);
+    }
+
+    // --- UI UPDATES (SPANS) ---
+    const netPrice = Math.max(0, totalAmount - row.discountAmount);
+
+    const totalEl = document.getElementById(`row-total-${id}`);
+    if (totalEl) totalEl.innerText = totalAmount.toLocaleString();
+
+    const netEl = document.getElementById(`row-net-${id}`);
+    if (netEl) netEl.innerText = netPrice.toLocaleString();
+
     updateTotals();
 }
 
@@ -68,7 +122,8 @@ function renderRows() {
     tbody.innerHTML = '';
 
     rows.forEach(row => {
-        const final = Math.max(0, row.price - row.discount);
+        const totalAmount = row.price * row.quantity;
+        const netPrice = Math.max(0, totalAmount - row.discountAmount);
 
         const tr = document.createElement('tr');
         tr.className = 'product-row';
@@ -90,17 +145,37 @@ function renderRows() {
                     class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
                 >
             </td>
-            <td class="col-discount">
-                <span class="mobile-label">Discount</span>
-                <input type="number" value="${row.discount || ''}" 
-                    oninput="updateRow('${row.id}', 'discount', this.value)"
+            <td class="col-qty">
+                <span class="mobile-label">Qty</span>
+                <input type="number" value="${row.quantity || ''}" 
+                    oninput="updateRow('${row.id}', 'quantity', this.value)"
+                    placeholder="1"
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                >
+            </td>
+            <td class="col-total">
+                <span class="mobile-label">Total</span>
+                <span id="row-total-${row.id}" class="font-medium text-slate-600 block py-2">${totalAmount.toLocaleString()}</span>
+            </td>
+            <td class="col-disc-per">
+                <span class="mobile-label">Disc %</span>
+                <input id="input-disc-per-${row.id}" type="number" value="${row.discountPercent || ''}" 
+                    oninput="updateRow('${row.id}', 'discountPercent', this.value)"
                     placeholder="0"
                     class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
                 >
             </td>
-            <td class="col-final text-right">
-                <span class="mobile-label">Total</span>
-                <span id="total-${row.id}">${final.toLocaleString()}</span>
+             <td class="col-disc-amt">
+                <span class="mobile-label">Disc Amt</span>
+                <input id="input-disc-amt-${row.id}" type="number" value="${row.discountAmount || ''}" 
+                    oninput="updateRow('${row.id}', 'discountAmount', this.value)"
+                    placeholder="0"
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                >
+            </td>
+            <td class="col-net text-right">
+                <span class="mobile-label">Net Price</span>
+                <span id="row-net-${row.id}" class="font-bold text-indigo-600 block py-2">${netPrice.toLocaleString()}</span>
             </td>
             <td class="col-action text-center">
                 <button onclick="removeRow('${row.id}')" class="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors" tabindex="-1">
@@ -119,20 +194,22 @@ function renderRows() {
 }
 
 function updateTotals() {
-    let sumOriginal = 0;
+    let sumTotalAmount = 0;
     let sumDiscount = 0;
-    let grandTotal = 0;
+    let sumNetPrice = 0;
 
     rows.forEach(row => {
-        const final = Math.max(0, row.price - row.discount);
-        sumOriginal += row.price;
-        sumDiscount += row.discount;
-        grandTotal += final;
+        const totalAmount = row.price * row.quantity;
+        const netPrice = Math.max(0, totalAmount - row.discountAmount);
+
+        sumTotalAmount += totalAmount;
+        sumDiscount += row.discountAmount;
+        sumNetPrice += netPrice;
     });
 
-    document.getElementById('app-total-original').innerText = sumOriginal.toLocaleString();
+    document.getElementById('app-total-original').innerText = sumTotalAmount.toLocaleString();
     document.getElementById('app-total-discount').innerText = sumDiscount.toLocaleString();
-    document.getElementById('app-grand-total').innerText = "Rs " + grandTotal.toLocaleString();
+    document.getElementById('app-grand-total').innerText = "Rs " + sumNetPrice.toLocaleString();
 }
 
 // --- PDF LOGIC ---
@@ -141,27 +218,32 @@ function generatePDF() {
     const tbody = document.getElementById('pdf-table-body');
 
     tbody.innerHTML = '';
-    let sumOriginal = 0, sumDiscount = 0, grandTotal = 0;
+    let sumTotalAmount = 0, sumDiscount = 0, sumNetPrice = 0;
 
     rows.forEach(row => {
-        const final = Math.max(0, row.price - row.discount);
-        sumOriginal += row.price;
-        sumDiscount += row.discount;
-        grandTotal += final;
+        const totalAmount = row.price * row.quantity;
+        const netPrice = Math.max(0, totalAmount - row.discountAmount);
+
+        sumTotalAmount += totalAmount;
+        sumDiscount += row.discountAmount;
+        sumNetPrice += netPrice;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${row.name || '-'}</td>
             <td>${row.price.toLocaleString()}</td>
-            <td>${row.discount ? row.discount.toLocaleString() : '-'}</td>
-            <td style="text-align:right; font-weight:500;">${final.toLocaleString()}</td>
+            <td>${row.quantity}</td>
+            <td>${totalAmount.toLocaleString()}</td>
+            <td>${row.discountPercent ? row.discountPercent + '%' : '-'}</td>
+            <td>${row.discountAmount ? row.discountAmount.toLocaleString() : '-'}</td>
+            <td style="text-align:right; font-weight:bold;">${netPrice.toLocaleString()}</td>
         `;
         tbody.appendChild(tr);
     });
 
-    document.getElementById('pdf-sum-original').innerText = sumOriginal.toLocaleString();
+    document.getElementById('pdf-sum-original').innerText = sumTotalAmount.toLocaleString();
     document.getElementById('pdf-sum-discount').innerText = sumDiscount.toLocaleString();
-    document.getElementById('pdf-grand-total').innerText = "Rs " + grandTotal.toLocaleString();
+    document.getElementById('pdf-grand-total').innerText = "Rs " + sumNetPrice.toLocaleString();
     document.getElementById('pdf-notes').innerText = document.getElementById('app-notes').value || "Thank you for your business.";
 
     const dateOptions = { day: 'numeric', month: 'long', year: 'numeric' };
