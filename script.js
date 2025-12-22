@@ -249,6 +249,13 @@ function generatePDF() {
     const dateOptions = { day: 'numeric', month: 'long', year: 'numeric' };
     document.getElementById('pdf-date').innerText = new Date().toLocaleDateString('en-GB', dateOptions);
 
+    // Transfer Invoice No and Customer Name
+    const invoiceNo = document.getElementById('app-invoice-no').value;
+    const customerName = document.getElementById('app-customer-name').value;
+
+    document.getElementById('pdf-invoice-no').innerText = invoiceNo ? `Invoice #: ${invoiceNo}` : '';
+    document.getElementById('pdf-customer-name').innerText = customerName ? `Customer: ${customerName}` : '';
+
     template.style.display = 'block';
 
     const opt = {
