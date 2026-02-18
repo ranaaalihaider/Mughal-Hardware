@@ -740,6 +740,7 @@ function exportData() {
 }
 
 function importData(input) {
+    // alert('Importing data...'); // Debug
     const file = input.files[0];
     if (!file) return;
 
