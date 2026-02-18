@@ -714,3 +714,68 @@ function generatePDF() {
         }
     }, 1000);
 }
+
+// --- DATA BACKUP/RESTORE ---
+function exportData() {
+    const data = {
+        products: savedProducts,
+        companies: companies,
+        timestamp: new Date().toISOString()
+    };
+
+    // Create filename with date
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `mughal-backup-${dateStr}.json`;
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded successfully', 'success');
+}
+
+function importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const jsonText = e.target.result;
+            const data = JSON.parse(jsonText);
+
+            // Basic Validation
+            if (!data.products || !Array.isArray(data.products) || !data.companies || !Array.isArray(data.companies)) {
+                throw new Error('Invalid backup file format. Missing products or companies array.');
+            }
+
+            // Confirm before overwriting
+            const msg = `Restore data?\n\nThis will OVERWRITE your current data with:\n- ${data.products.length} Products\n- ${data.companies.length} Companies\n\nAre you sure?`;
+
+            if (confirm(msg)) {
+                savedProducts = data.products;
+                companies = data.companies;
+
+                localStorage.setItem('mughal_products', JSON.stringify(savedProducts));
+                localStorage.setItem('mughal_companies', JSON.stringify(companies));
+
+                showToast('Data restored successfully! Reloading...', 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                // Clear input if cancelled so same file can be selected again
+                input.value = '';
+            }
+
+        } catch (err) {
+            console.error(err);
+            showToast('Error reading backup file: ' + err.message, 'error');
+            input.value = '';
+        }
+    };
+    reader.readAsText(file);
+}
