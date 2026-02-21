@@ -1,7 +1,18 @@
 // --- STATE MANAGEMENT ---
 let rows = [];
-let companies = JSON.parse(localStorage.getItem('mughal_companies')) || [];
-let savedProducts = JSON.parse(localStorage.getItem('mughal_products')) || [];
+let savedProducts = [];
+let companies = [];
+
+// --- LOAD PRODUCTS FROM data.js (works on file:// and GitHub Pages) ---
+function loadProductData() {
+    if (typeof PRODUCT_DATA !== 'undefined') {
+        savedProducts = PRODUCT_DATA.products || [];
+        companies = PRODUCT_DATA.companies || [...new Set(savedProducts.map(p => p.company))];
+        return Promise.resolve();
+    }
+    console.error('PRODUCT_DATA not found. Make sure data.js is loaded before script.js.');
+    return Promise.resolve();
+}
 
 // --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,12 +23,14 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch((err) => console.log('Service Worker Failed', err));
     }
 
-    // Determine Page
-    if (document.getElementById('app-ui')) {
-        initDashboard();
-    } else if (document.getElementById('product-management-ui')) {
-        initProductManager();
-    }
+    // Load products from data.json then init the page
+    loadProductData().then(() => {
+        if (document.getElementById('app-ui')) {
+            initDashboard();
+        } else if (document.getElementById('product-management-ui')) {
+            initProductManager();
+        }
+    });
 });
 
 function initDashboard() {
@@ -138,21 +151,7 @@ function toggleProductManager() {
     window.location.href = 'products.html';
 }
 
-function addNewCompany() {
-    const input = document.getElementById('new-company-name');
-    const name = input.value.trim();
-    if (!name) return showToast('Please enter a company name', 'error');
-
-    if (!companies.includes(name)) {
-        companies.push(name);
-        localStorage.setItem('mughal_companies', JSON.stringify(companies));
-        input.value = '';
-        updateCompanyDropdowns();
-        showToast('Company added successfully!');
-    } else {
-        showToast('Company already exists', 'error');
-    }
-}
+// Companies are now derived from hardcoded products — no add company needed.
 
 function updateCompanyDropdowns() {
     // Dashboard Filter
@@ -276,171 +275,24 @@ function renderProductManagementTable() {
 
     // Render Desktop Table
     tbody.innerHTML = filtered.map(p => `
-        <tr class="hover:bg-slate-50 transition-colors group">
+        <tr class="hover:bg-slate-50 transition-colors">
             <td class="p-4 border-b border-slate-100 font-medium text-slate-700">${p.name}</td>
             <td class="p-4 border-b border-slate-100 text-sm text-indigo-600 font-medium">${p.company}</td>
             <td class="p-4 border-b border-slate-100 text-sm font-mono">Rs ${p.price.toLocaleString()}</td>
-            <td class="p-4 border-b border-slate-100 text-center">
-                <div class="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onclick="openEditProductModal('${p.id}')" class="text-slate-400 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition-colors" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="openDeleteModal('${p.id}')" class="text-slate-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors" title="Delete">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </div>
-            </td>
         </tr>
     `).join('');
 
     // Render Mobile Cards
     mobileGrid.innerHTML = filtered.map(p => `
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-3">
-            <div class="flex justify-between items-start">
-                <div>
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-1 rounded-full">${p.company}</span>
-                    <h3 class="font-bold text-slate-800 mt-2 mb-1">${p.name}</h3>
-                    <div class="text-sm font-mono text-slate-600 bg-slate-100 inline-block px-2 py-1 rounded">Rs ${p.price.toLocaleString()}</div>
-                </div>
-            </div>
-            <div class="flex gap-2 border-t border-slate-100 pt-3 mt-1">
-                <button onclick="openEditProductModal('${p.id}')" class="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors">
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button onclick="openDeleteModal('${p.id}')" class="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium text-slate-600 bg-slate-50 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors">
-                    <i class="fas fa-trash-alt"></i> Delete
-                </button>
-            </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-1 rounded-full">${p.company}</span>
+            <h3 class="font-bold text-slate-800 mt-2 mb-1">${p.name}</h3>
+            <div class="text-sm font-mono text-slate-600 bg-slate-100 inline-block px-2 py-1 rounded">Rs ${p.price.toLocaleString()}</div>
         </div>
     `).join('');
 }
 
-// -- Add/Edit Logic --
-let currentEditId = null;
-
-function openAddProductModal() {
-    currentEditId = null;
-    document.getElementById('modal-title').innerText = 'Add New Product';
-
-    // Reset form
-    document.getElementById('edit-company').value = companies[0] || '';
-    document.getElementById('edit-name').value = '';
-    document.getElementById('edit-price').value = '';
-    document.getElementById('edit-new-company').classList.add('hidden');
-    document.getElementById('edit-company').parentElement.classList.remove('hidden');
-
-    document.getElementById('edit-modal').classList.remove('hidden');
-}
-
-function openEditProductModal(id) {
-    const product = savedProducts.find(p => p.id === id);
-    if (!product) return;
-
-    currentEditId = id;
-    document.getElementById('modal-title').innerText = 'Edit Product';
-
-    document.getElementById('edit-company').value = product.company;
-    document.getElementById('edit-name').value = product.name;
-    document.getElementById('edit-price').value = product.price;
-
-    // Ensure company exists in dropdown, else it might be a new custom one?
-    // For now we assume companies list is up to date.
-
-    document.getElementById('edit-modal').classList.remove('hidden');
-}
-
-function closeEditModal() {
-    document.getElementById('edit-modal').classList.add('hidden');
-}
-
-function toggleCompanyInput() {
-    const selectDiv = document.getElementById('edit-company').parentElement;
-    const input = document.getElementById('edit-new-company');
-
-    if (input.classList.contains('hidden')) {
-        selectDiv.classList.add('hidden');
-        input.classList.remove('hidden');
-        input.focus();
-    } else {
-        selectDiv.classList.remove('hidden');
-        input.classList.add('hidden');
-    }
-}
-
-function saveProduct() {
-    const name = document.getElementById('edit-name').value.trim();
-    const price = parseFloat(document.getElementById('edit-price').value);
-
-    let company = document.getElementById('edit-company').value;
-    const newCompanyInput = document.getElementById('edit-new-company');
-
-    if (!newCompanyInput.classList.contains('hidden')) {
-        const newComp = newCompanyInput.value.trim();
-        if (newComp) {
-            company = newComp;
-            // Add to companies list if new
-            if (!companies.includes(company)) {
-                companies.push(company);
-                localStorage.setItem('mughal_companies', JSON.stringify(companies));
-                updateCompanyDropdowns();
-            }
-        }
-    }
-
-    if (!name || isNaN(price) || !company) {
-        return showToast('Please fill all fields correctly', 'error');
-    }
-
-    if (currentEditId) {
-        // Edit existing
-        const index = savedProducts.findIndex(p => p.id === currentEditId);
-        if (index !== -1) {
-            savedProducts[index] = { ...savedProducts[index], company, name, price };
-            showToast('Product updated');
-        }
-    } else {
-        // Add New
-        const newProduct = {
-            id: Date.now().toString(),
-            company,
-            name,
-            price
-        };
-        savedProducts.push(newProduct);
-        showToast('Product added successfully');
-    }
-
-    localStorage.setItem('mughal_products', JSON.stringify(savedProducts));
-    closeEditModal();
-    renderProductManagementTable();
-}
-
-// -- Delete Logic --
-let productToDeleteId = null;
-
-function openDeleteModal(id) {
-    const product = savedProducts.find(p => p.id === id);
-    if (!product) return;
-
-    productToDeleteId = id;
-    document.getElementById('delete-product-name').innerText = product.name;
-    document.getElementById('delete-modal').classList.remove('hidden');
-}
-
-function closeDeleteModal() {
-    document.getElementById('delete-modal').classList.add('hidden');
-    productToDeleteId = null;
-}
-
-function confirmDelete() {
-    if (productToDeleteId) {
-        savedProducts = savedProducts.filter(p => p.id !== productToDeleteId);
-        localStorage.setItem('mughal_products', JSON.stringify(savedProducts));
-        showToast('Product deleted');
-        renderProductManagementTable();
-    }
-    closeDeleteModal();
-}
+// Products are hardcoded — no add/edit/delete functionality needed.
 
 
 // --- QUOTATION LOGIC (Dashboard) ---
@@ -715,68 +567,4 @@ function generatePDF() {
     }, 1000);
 }
 
-// --- DATA BACKUP/RESTORE ---
-function exportData() {
-    const data = {
-        products: savedProducts,
-        companies: companies,
-        timestamp: new Date().toISOString()
-    };
-
-    // Create filename with date
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const filename = `mughal-backup-${dateStr}.json`;
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast('Backup downloaded successfully', 'success');
-}
-
-function importData(input) {
-    // alert('Importing data...'); // Debug
-    const file = input.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        try {
-            const jsonText = e.target.result;
-            const data = JSON.parse(jsonText);
-
-            // Basic Validation
-            if (!data.products || !Array.isArray(data.products) || !data.companies || !Array.isArray(data.companies)) {
-                throw new Error('Invalid backup file format. Missing products or companies array.');
-            }
-
-            // Confirm before overwriting
-            const msg = `Restore data?\n\nThis will OVERWRITE your current data with:\n- ${data.products.length} Products\n- ${data.companies.length} Companies\n\nAre you sure?`;
-
-            if (confirm(msg)) {
-                savedProducts = data.products;
-                companies = data.companies;
-
-                localStorage.setItem('mughal_products', JSON.stringify(savedProducts));
-                localStorage.setItem('mughal_companies', JSON.stringify(companies));
-
-                showToast('Data restored successfully! Reloading...', 'success');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                // Clear input if cancelled so same file can be selected again
-                input.value = '';
-            }
-
-        } catch (err) {
-            console.error(err);
-            showToast('Error reading backup file: ' + err.message, 'error');
-            input.value = '';
-        }
-    };
-    reader.readAsText(file);
-}
+// Backup/Restore removed — products are hardcoded, nothing to save.
