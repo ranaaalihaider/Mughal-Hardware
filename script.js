@@ -583,7 +583,7 @@ function generatePDF() {
             <td>${row.price.toLocaleString()}</td>
             <td>${row.quantity}</td>
             <td>${totalAmount.toLocaleString()}</td>
-            <td>${row.discountPercent ? row.discountPercent + '%' : '-'}</td>
+            <td>${row.discountPercent ? parseFloat(row.discountPercent).toFixed(2) + '%' : '-'}</td>
             <td>${row.discountAmount ? row.discountAmount.toLocaleString() : '-'}</td>
             <td style="text-align:right; font-weight:bold;">${netPrice.toLocaleString()}</td>
         `;
