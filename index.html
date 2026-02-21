@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Mughal Traders Quotation</title>
     <link rel="preconnect" href="https://cdn.tailwindcss.com">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
@@ -17,15 +18,16 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            padding-bottom: 80px;
-            /* Space for bottom nav on mobile */
+            /* Bottom padding: fixed nav height + iPhone safe area */
+            padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+            -webkit-tap-highlight-color: transparent;
         }
 
         /* === MOBILE PWA STYLES === */
         @media (max-width: 768px) {
             .mobile-tab-content {
                 display: none;
-                animation: fadeIn 0.3s ease-in-out;
+                animation: fadeIn 0.25s ease-in-out;
             }
 
             .mobile-tab-content.active {
@@ -39,7 +41,7 @@
             @keyframes fadeIn {
                 from {
                     opacity: 0;
-                    transform: translateY(10px);
+                    transform: translateY(8px);
                 }
 
                 to {
@@ -52,7 +54,6 @@
         @media (min-width: 769px) {
             .mobile-tab-content {
                 display: block !important;
-                /* Always show everything on desktop */
             }
 
             #bottom-nav {
@@ -60,95 +61,168 @@
             }
         }
 
-        /* === MOBILE CARD VIEW === */
+        /* === BOTTOM NAV — iPhone safe area === */
+        #bottom-nav {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            height: auto;
+            min-height: 56px;
+        }
+
+        #bottom-nav>button {
+            padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+        }
+
+        /* === MOBILE QUOTATION CARD VIEW === */
         @media (max-width: 768px) {
             .desktop-table-header {
                 display: none;
             }
 
+            /* Each row becomes a full card */
             .product-row {
+                display: block;
+                background: #fff;
+                border-radius: 12px;
+                border: 1px solid #e2e8f0;
+                margin-bottom: 8px;
+                overflow: hidden;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            }
+
+            /* Coloured top bar per card */
+            .product-row::before {
+                content: '';
+                display: block;
+                height: 3px;
+                background: linear-gradient(90deg, #6366f1, #06b6d4);
+            }
+
+            /* Card inner layout */
+            .card-inner {
+                padding: 8px 10px;
+            }
+
+            /* Hide td borders on mobile — card handles it */
+            .product-row td {
+                display: block;
+                padding: 0;
+                border: none;
+            }
+
+            /* Name row: full width */
+            .col-name {
+                margin-bottom: 6px;
+            }
+
+            /* Stats row: grid of 4 small boxes */
+            .mobile-stats-row {
                 display: grid;
                 grid-template-columns: 1fr 1fr 1fr 1fr;
-                /* 4 columns for better packing */
-                gap: 0.5rem;
-                background: white;
-                padding: 0.75rem;
-                border-radius: 0.75rem;
+                gap: 5px;
+                margin-bottom: 6px;
+            }
+
+            /* Each stat box */
+            .mobile-stat {
+                background: #f8fafc;
                 border: 1px solid #e2e8f0;
-                margin-bottom: 0.5rem;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                border-radius: 7px;
+                padding: 4px 6px;
             }
 
-            .col-name {
-                grid-column: span 4;
-                margin-bottom: 0.25rem;
+            .mobile-stat.accent-blue {
+                border-color: #bfdbfe;
+                background: #eff6ff;
             }
 
-            .col-price {
-                grid-column: span 1;
+            .mobile-stat.accent-teal {
+                border-color: #99f6e4;
+                background: #f0fdfa;
             }
 
-            .col-qty {
-                grid-column: span 1;
+            .mobile-stat.accent-red {
+                border-color: #fecaca;
+                background: #fff1f2;
             }
 
-            .col-total {
-                grid-column: span 2;
-                text-align: right;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
-            }
-
-            /* Second Row of stats */
-            .col-disc-per {
-                grid-column: span 1;
-            }
-
-            .col-disc-amt {
-                grid-column: span 1;
-            }
-
-            .col-net {
-                grid-column: span 1;
-                font-weight: bold;
-                color: #4f46e5;
-                font-size: 0.9rem;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-end;
-                align-items: flex-end;
-            }
-
-            .col-action {
-                grid-column: span 1;
-                display: flex;
-                justify-content: flex-end;
-                align-items: center;
+            .mobile-stat.accent-indigo {
+                border-color: #c7d2fe;
+                background: #eef2ff;
             }
 
             .mobile-label {
                 display: block;
-                font-size: 0.6rem;
+                font-size: 0.55rem;
                 text-transform: uppercase;
                 color: #94a3b8;
                 font-weight: 700;
+                letter-spacing: 0.04em;
                 margin-bottom: 1px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
             }
 
-            /* Compact inputs on mobile */
-            .product-row input {
-                padding: 0.25rem 0.5rem;
-                font-size: 0.85rem;
-                height: auto;
+            .mobile-value {
+                font-size: 0.78rem;
+                font-weight: 600;
+                color: #1e293b;
+            }
+
+            .mobile-value.net {
+                color: #4f46e5;
+                font-size: 0.82rem;
+            }
+
+            /* Compact inputs inside card */
+            .product-row input,
+            .product-row textarea {
+                padding: 4px 7px;
+                font-size: 0.82rem;
+                border-radius: 6px;
+                width: 100%;
+                min-height: unset;
             }
 
             .product-row textarea {
-                font-size: 0.9rem;
-                min-height: 2.5rem;
+                min-height: 2rem;
+                font-size: 0.82rem;
+            }
+
+            /* Bottom action row */
+            .mobile-action-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-top: 4px;
+            }
+
+            .net-price-badge {
+                background: linear-gradient(135deg, #6366f1, #4f46e5);
+                color: white;
+                font-size: 0.8rem;
+                font-weight: 700;
+                padding: 3px 10px;
+                border-radius: 20px;
+                letter-spacing: 0.01em;
+            }
+
+            .col-price,
+            .col-qty,
+            .col-total,
+            .col-disc-per,
+            .col-disc-amt,
+            .col-net,
+            .col-action,
+            .col-name {
+                display: none !important;
+            }
+
+            /* Show the mobile card td */
+            .col-mobile-card {
+                display: table-cell !important;
+            }
+
+            /* col-name inside the mobile card must stay visible */
+            .col-mobile-card .col-name {
+                display: block !important;
             }
         }
 
@@ -158,24 +232,34 @@
                 display: none;
             }
 
+            /* Hide the mobile-only card on desktop */
+            .col-mobile-card {
+                display: none !important;
+            }
+
+            .mobile-stats-row,
+            .mobile-action-row {
+                display: none;
+            }
+
             .product-row {
                 display: table-row;
+            }
+
+            .product-row::before {
+                display: none;
             }
 
             .product-row td {
                 display: table-cell;
                 border-bottom: 1px solid #f1f5f9;
-                padding: 0.75rem 0.5rem;
-                /* Reduced horizontal padding */
+                padding: 0.7rem 0.5rem;
                 vertical-align: middle;
-                /* Center vertically */
             }
 
-            /* Clean Input Styling for Desktop */
             .product-row input,
             .product-row textarea {
                 border: 1px solid transparent !important;
-                /* Override Tailwind border */
                 background: transparent !important;
                 padding: 0.5rem;
                 transition: all 0.2s;
@@ -185,7 +269,6 @@
             .product-row input:hover,
             .product-row textarea:hover {
                 background-color: #f8fafc !important;
-                /* Light gray on hover */
             }
 
             .product-row input:focus,
@@ -195,10 +278,20 @@
                 box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
             }
 
-            /* Specific column tweaks */
             .col-total,
             .col-net {
                 font-family: 'Inter', monospace;
+            }
+
+            /* hide mobile-only elements on desktop */
+            .col-price,
+            .col-qty,
+            .col-total,
+            .col-disc-per,
+            .col-disc-amt,
+            .col-net,
+            .col-action {
+                display: table-cell;
             }
         }
 

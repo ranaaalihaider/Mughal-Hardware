@@ -226,14 +226,19 @@ function addProductToQuote(productId) {
     updateRow(targetRowId, 'name', fullName);
     updateRow(targetRowId, 'price', product.price);
 
-    document.querySelector(`#app-product-list textarea[oninput*="'${targetRowId}', 'name'"]`).value = fullName;
-    document.querySelector(`#app-product-list input[oninput*="'${targetRowId}', 'price'"]`).value = product.price;
-
-    const textarea = document.querySelector(`#app-product-list textarea[oninput*="'${targetRowId}', 'name'"]`);
-    if (textarea) {
-        textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
-    }
+    // Update ALL textareas and inputs for this row (covers both mobile card & desktop columns)
+    document.querySelectorAll(`#app-product-list textarea`).forEach(ta => {
+        if (ta.getAttribute('oninput') && ta.getAttribute('oninput').includes(`'${targetRowId}'`) && ta.getAttribute('oninput').includes("'name'")) {
+            ta.value = fullName;
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+        }
+    });
+    document.querySelectorAll(`#app-product-list input[type="number"]`).forEach(inp => {
+        if (inp.getAttribute('oninput') && inp.getAttribute('oninput').includes(`'${targetRowId}'`) && inp.getAttribute('oninput').includes("'price'")) {
+            inp.value = product.price;
+        }
+    });
 
     updateRow(targetRowId, 'quantity', 1);
     updateCartBadge();
@@ -359,29 +364,42 @@ function updateRow(id, field, value) {
 
     if (field === 'price' || field === 'quantity') {
         row.discountAmount = (totalAmount * row.discountPercent) / 100;
-        const discAmtInput = document.getElementById(`input-disc-amt-${id}`);
-        if (discAmtInput) discAmtInput.value = row.discountAmount;
+        // Update both desktop and mobile inputs
+        ['', '-mob'].forEach(sfx => {
+            const el = document.getElementById(`input-disc-amt-${id}${sfx}`);
+            if (el) el.value = row.discountAmount;
+        });
     }
 
     if (field === 'discountPercent') {
         row.discountAmount = (totalAmount * row.discountPercent) / 100;
-        const discAmtInput = document.getElementById(`input-disc-amt-${id}`);
-        if (discAmtInput) discAmtInput.value = row.discountAmount;
+        ['', '-mob'].forEach(sfx => {
+            const el = document.getElementById(`input-disc-amt-${id}${sfx}`);
+            if (el) el.value = row.discountAmount;
+        });
     }
 
     if (field === 'discountAmount') {
         row.discountPercent = totalAmount > 0 ? (row.discountAmount / totalAmount) * 100 : 0;
-        const discPerInput = document.getElementById(`input-disc-per-${id}`);
-        if (discPerInput) discPerInput.value = row.discountPercent.toFixed(2);
+        ['', '-mob'].forEach(sfx => {
+            const el = document.getElementById(`input-disc-per-${id}${sfx}`);
+            if (el) el.value = row.discountPercent.toFixed(2);
+        });
     }
 
     const netPrice = Math.max(0, totalAmount - row.discountAmount);
 
+    // Update desktop total/net
     const totalEl = document.getElementById(`row-total-${id}`);
     if (totalEl) totalEl.innerText = totalAmount.toLocaleString();
-
     const netEl = document.getElementById(`row-net-${id}`);
     if (netEl) netEl.innerText = netPrice.toLocaleString();
+
+    // Update mobile total/net badge
+    const mobTotalEl = document.getElementById(`row-total-${id}-mob`);
+    if (mobTotalEl) mobTotalEl.innerText = totalAmount.toLocaleString();
+    const mobNetEl = document.getElementById(`row-net-${id}-mob`);
+    if (mobNetEl) mobNetEl.innerText = `Rs ${netPrice.toLocaleString()}`;
 
     updateTotals();
 }
@@ -398,11 +416,69 @@ function renderRows() {
         const tr = document.createElement('tr');
         tr.className = 'product-row';
         tr.innerHTML = `
+            <!-- ===== MOBILE CARD (hidden on desktop) ===== -->
+            <td class="col-mobile-card" colspan="8" style="display:none">
+                <div class="card-inner">
+                    <!-- Product name textarea -->
+                    <div class="col-name">
+                        <textarea
+                            oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';updateRow('${row.id}','name',this.value);"
+                            onfocus="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+                            placeholder="Item description"
+                            rows="1"
+                            class="w-full border border-gray-200 rounded outline-none resize-none overflow-hidden bg-white"
+                        >${row.name}</textarea>
+                    </div>
+                    <!-- Stats row: Price | Qty | Total | Disc% -->
+                    <div class="mobile-stats-row" style="margin-top:6px">
+                        <div class="mobile-stat accent-blue">
+                            <span class="mobile-label">Price</span>
+                            <input type="number" value="${row.price || ''}"
+                                oninput="updateRow('${row.id}','price',this.value)"
+                                placeholder="0"
+                                class="border border-blue-200 rounded outline-none w-full bg-transparent">
+                        </div>
+                        <div class="mobile-stat accent-teal">
+                            <span class="mobile-label">Qty</span>
+                            <input type="number" value="${row.quantity || ''}"
+                                oninput="updateRow('${row.id}','quantity',this.value)"
+                                placeholder="1"
+                                class="border border-teal-200 rounded outline-none w-full bg-transparent">
+                        </div>
+                        <div class="mobile-stat accent-red">
+                            <span class="mobile-label">Disc %</span>
+                            <input id="input-disc-per-${row.id}-mob" type="number" value="${row.discountPercent || ''}"
+                                oninput="updateRow('${row.id}','discountPercent',this.value)"
+                                placeholder="0"
+                                class="border border-red-200 rounded outline-none w-full bg-transparent">
+                        </div>
+                        <div class="mobile-stat accent-indigo">
+                            <span class="mobile-label">Disc Amt</span>
+                            <input id="input-disc-amt-${row.id}-mob" type="number" value="${row.discountAmount || ''}"
+                                oninput="updateRow('${row.id}','discountAmount',this.value)"
+                                placeholder="0"
+                                class="border border-indigo-200 rounded outline-none w-full bg-transparent">
+                        </div>
+                    </div>
+                    <!-- Action row: Total + Net badge + Delete -->
+                    <div class="mobile-action-row">
+                        <span style="font-size:0.72rem;color:#94a3b8;">
+                            Total: <strong id="row-total-${row.id}-mob" style="color:#475569">${totalAmount.toLocaleString()}</strong>
+                        </span>
+                        <span class="net-price-badge" id="row-net-${row.id}-mob">Rs ${netPrice.toLocaleString()}</span>
+                        <button onclick="removeRow('${row.id}')" style="color:#cbd5e1;padding:4px 6px;border-radius:8px;background:none;border:none;cursor:pointer;" tabindex="-1">
+                            <i class="fas fa-trash-alt" style="font-size:0.85rem"></i>
+                        </button>
+                    </div>
+                </div>
+            </td>
+
+            <!-- ===== DESKTOP COLUMNS (hidden on mobile via CSS) ===== -->
             <td class="col-name">
                 <span class="mobile-label">Product Name</span>
-                <textarea 
-                    oninput="this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; updateRow('${row.id}', 'name', this.value);"
-                    onfocus="this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'"
+                <textarea
+                    oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';updateRow('${row.id}','name',this.value);"
+                    onfocus="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
                     placeholder="Item description"
                     rows="2"
                     class="w-full p-3 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none overflow-hidden bg-transparent min-h-[3.5rem] leading-relaxed"
@@ -410,19 +486,17 @@ function renderRows() {
             </td>
             <td class="col-price">
                 <span class="mobile-label">Price</span>
-                <input type="number" value="${row.price || ''}" 
-                    oninput="updateRow('${row.id}', 'price', this.value)"
+                <input type="number" value="${row.price || ''}"
+                    oninput="updateRow('${row.id}','price',this.value)"
                     placeholder="0"
-                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                >
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all">
             </td>
             <td class="col-qty">
                 <span class="mobile-label">Qty</span>
-                <input type="number" value="${row.quantity || ''}" 
-                    oninput="updateRow('${row.id}', 'quantity', this.value)"
+                <input type="number" value="${row.quantity || ''}"
+                    oninput="updateRow('${row.id}','quantity',this.value)"
                     placeholder="1"
-                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                >
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all">
             </td>
             <td class="col-total">
                 <span class="mobile-label">Total</span>
@@ -430,19 +504,17 @@ function renderRows() {
             </td>
             <td class="col-disc-per">
                 <span class="mobile-label">Disc %</span>
-                <input id="input-disc-per-${row.id}" type="number" value="${row.discountPercent || ''}" 
-                    oninput="updateRow('${row.id}', 'discountPercent', this.value)"
+                <input id="input-disc-per-${row.id}" type="number" value="${row.discountPercent || ''}"
+                    oninput="updateRow('${row.id}','discountPercent',this.value)"
                     placeholder="0"
-                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                >
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all">
             </td>
-             <td class="col-disc-amt">
+            <td class="col-disc-amt">
                 <span class="mobile-label">Disc Amt</span>
-                <input id="input-disc-amt-${row.id}" type="number" value="${row.discountAmount || ''}" 
-                    oninput="updateRow('${row.id}', 'discountAmount', this.value)"
+                <input id="input-disc-amt-${row.id}" type="number" value="${row.discountAmount || ''}"
+                    oninput="updateRow('${row.id}','discountAmount',this.value)"
                     placeholder="0"
-                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
-                >
+                    class="w-full p-2 border border-gray-200 rounded focus:ring-2 focus:ring-indigo-200 outline-none transition-all">
             </td>
             <td class="col-net text-right">
                 <span class="mobile-label">Net Price</span>
